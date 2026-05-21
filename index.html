@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生徒会AIポータル</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── CSS 変数 ─────────────────────────────────────── */
+    :root {
+      --bg:           #111111;
+      --surface:      #1c1c1c;
+      --surface-2:    #242424;
+      --surface-3:    #2c2c2c;
+      --border:       #2e2e2e;
+      --border-hi:    #3e3e3e;
+      --text:         #e2e2e2;
+      --text-dim:     #a8a8a8;
+      --muted:        #666666;
+      --accent:       #6ee7b7;
+      --accent-dim:   rgba(110,231,183,0.1);
+      --accent-glow:  rgba(110,231,183,0.2);
+      --user-bg:      #1e3a2f;      /* ユーザーバブル背景 */
+      --user-border:  rgba(110,231,183,0.25);
+      --ai-bg:        var(--surface-2);
+      --ok:           #4ade80;
+      --warn:         #fbbf24;
+      --error:        #f87171;
+      --radius:       12px;
+      --mono:         'IBM Plex Mono', 'Consolas', monospace;
+      --sans:         'Noto Sans JP', 'Hiragino Sans', system-ui, sans-serif;
+      --header-h:     56px;
+      --input-area-h: 80px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ════════════════════════════════════════
+       初期化画面
+    ════════════════════════════════════════ */
+    #init-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse 70% 40% at 50% 0%, rgba(110,231,183,0.05) 0%, transparent 70%),
+        var(--bg);
+    }
+
+    .init-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset,
+                  0 24px 60px rgba(0,0,0,0.5);
+    }
+
+    .init-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .init-logo-mark {
+      width: 42px; height: 42px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(110,231,183,0.25);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+    }
+    .init-logo h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .init-logo .subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .init-desc {
+      font-size: 0.83rem;
+      color: var(--text-dim);
+      background: rgba(251,191,36,0.07);
+      border: 1px solid rgba(251,191,36,0.2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    /* ステップ */
+    .init-step {
+      margin-bottom: 14px;
+    }
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 7px;
+    }
+    .step-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .step-num {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--surface-3);
+      border: 1px solid var(--border-hi);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem;
+      font-family: var(--mono);
+      font-weight: 600;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .step-num.active  { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .step-num.done    { background: var(--accent); border-color: var(--accent); color: #0f0f0f; }
+    .step-status {
+      font-size: 0.78rem;
+      font-family: var(--mono);
+      color: var(--muted);
+    }
+    .step-status.ok   { color: var(--ok); }
+    .step-status.err  { color: var(--error); }
+
+    .bar-track {
+      background: var(--surface-3);
+      border-radius: 999px;
+      height: 5px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent) 0%, #34d399 100%);
+      transition: width 0.35s ease;
+      width: 0%;
+    }
+    .bar-fill.done { width: 100% !important; }
+
+    .step-hint {
+      font-size: 0.73rem;
+      color: var(--muted);
+      margin-top: 5px;
+      min-height: 1.1em;
+      font-family: var(--mono);
+    }
+
+    /* DBピッカー */
+    .db-picker {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border: 1.5px dashed var(--border-hi);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 7px;
+    }
+    .db-picker:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .db-picker.loaded {
+      border-style: solid;
+      border-color: var(--ok);
+      background: rgba(74,222,128,0.06);
+      cursor: default;
+    }
+    .db-picker-icon { font-size: 1.6rem; flex-shrink: 0; }
+    .db-picker-text h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .db-picker-text p {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    #db-file-input { display: none; }
+
+    /* エラーバナー */
+    #init-error {
+      display: none;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.3);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 0.8rem;
+      color: var(--error);
+      margin-top: 16px;
+      white-space: pre-line;
+      line-height: 1.6;
+    }
+
+    /* 完了メッセージ */
+    #ready-msg {
+      display: none;
+      text-align: center;
+      padding: 13px;
+      background: rgba(74,222,128,0.07);
+      border: 1px solid rgba(74,222,128,0.25);
+      border-radius: 10px;
+      color: var(--ok);
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-top: 16px;
+    }
+
+    /* ════════════════════════════════════════
+       チャット画面
+    ════════════════════════════════════════ */
+    #chat-screen {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── ヘッダー ── */
+    #chat-header {
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .header-mark {
+      width: 34px; height: 34px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(110,231,183,0.2);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.05rem;
+    }
+    .header-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .header-sub {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+    .online-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.73rem;
+      font-family: var(--mono);
+      color: var(--ok);
+      background: rgba(74,222,128,0.08);
+      border: 1px solid rgba(74,222,128,0.2);
+      border-radius: 999px;
+      padding: 4px 12px;
+    }
+    .online-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 5px var(--ok);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.5; }
+    }
+
+    /* ── メッセージ一覧 ── */
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 16px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      scroll-behavior: smooth;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    #chat-messages::-webkit-scrollbar { width: 5px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ウェルカム */
+    .welcome {
+      max-width: 440px;
+      margin: 20px auto 0;
+      text-align: center;
+    }
+    .welcome-icon { font-size: 2.2rem; margin-bottom: 12px; }
+    .welcome h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .welcome p {
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      line-height: 1.7;
+    }
+    .welcome-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 18px;
+    }
+    .chip {
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      border-radius: 999px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .chip:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    /* ── メッセージ行 ── */
+    .msg-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 76%;
+      animation: slideIn 0.2s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg-row.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+    .msg-row.ai {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    /* ── バブル ── */
+    .bubble {
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      line-height: 1.72;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .msg-row.user .bubble {
+      background: var(--user-bg);
+      color: #d1fae5;
+      border: 1px solid var(--user-border);
+      border-radius: 18px 18px 4px 18px;
+    }
+    .msg-row.ai .bubble {
+      background: var(--ai-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 18px 18px 18px 4px;
+    }
+    .msg-row.ai .bubble.thinking {
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* タイピングカーソル */
+    .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: var(--accent);
+      border-radius: 1px;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.9s step-end infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    /* ドットアニメーション（考え中） */
+    .dots span {
+      display: inline-block;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--muted);
+      margin: 0 2px;
+      animation: dotBounce 1.2s ease-in-out infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: 0.2s; }
+    .dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotBounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40%            { transform: translateY(-5px); opacity: 1; }
+    }
+
+    /* ソースタグ */
+    .sources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 7px;
+    }
+    .source-tag {
+      font-size: 0.7rem;
+      font-family: var(--mono);
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid rgba(110,231,183,0.2);
+      border-radius: 4px;
+      padding: 2px 8px;
+    }
+    .source-tag.year-tag {
+      color: var(--muted);
+      background: var(--surface-3);
+      border-color: var(--border);
+    }
+
+    /* ── 入力エリア ── */
+    #chat-input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #question-input {
+      flex: 1;
+      resize: none;
+      background: var(--surface-2);
+      border: 1px solid var(--border-hi);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 0.9rem;
+      font-family: var(--sans);
+      color: var(--text);
+      line-height: 1.55;
+      max-height: 130px;
+      overflow-y: auto;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    #question-input::placeholder { color: var(--muted); }
+    #question-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+    #question-input:disabled { opacity: 0.5; }
+
+    #send-btn {
+      background: var(--accent);
+      color: #0f0f0f;
+      border: none;
+      border-radius: 10px;
+      padding: 0 18px;
+      height: 42px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-family: var(--sans);
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+      letter-spacing: 0.02em;
+    }
+    #send-btn:hover:not(:disabled) { background: #a7f3d0; }
+    #send-btn:active:not(:disabled) { transform: scale(0.96); }
+    #send-btn:disabled {
+      background: var(--surface-3);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     初期化画面
+════════════════════════════════════════ -->
+<div id="init-screen">
+  <div class="init-card">
+
+    <div class="init-logo">
+      <div class="init-logo-mark">🏫</div>
+      <div>
+        <h1>生徒会AIポータル</h1>
+        <div class="subtitle">Scrapbox 8年分の記録を検索</div>
+      </div>
+    </div>
+
+    <div class="init-desc">
+      ⚡ 初回のみ AIモデルのダウンロードが発生します（合計約2.5 GB）。
+      2回目以降はキャッシュから読み込むため、すぐに起動します。
+    </div>
+
+    <!-- STEP 1: 検索モデル -->
+    <div class="init-step">
+      <div class="step-header">
+        <div class="step-label">
+          <div class="step-num" id="step1-num">1</div>
+          検索モデルを読み込み中
+        </div>
+        <span class="step-status" id="embed-status">準備中…</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="embed-bar"></div></div>
+      <div class="step-hint">Xenova/all-MiniLM-L6-v2（約90 MB）</div>
+    </div>
+
+    <!-- STEP 2: 言語モデル -->
+    <div class="init-step">
+      <div class="step-header">
+        <div class="step-label">
+          <div class="step-num" id="step2-num">2</div>
+          言語モデルを読み込み中
+        </div>
+        <span class="step-status" id="llm-status">準備中…</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="llm-bar"></div></div>
+      <div class="step-hint" id="llm-hint">SmolLM2（約1.0 GB・初回のみ）</div>
+    </div>
+
+    <!-- STEP 3: DB -->
+    <div class="init-step">
+      <div class="step-header">
+        <div class="step-label">
+          <div class="step-num" id="step3-num">3</div>
+          データベースを読み込む
+        </div>
+        <span class="step-status" id="db-status">未選択</span>
+      </div>
+      <div class="db-picker" id="db-picker" role="button" tabindex="0">
+        <div class="db-picker-icon" id="db-icon">📂</div>
+        <div class="db-picker-text">
+          <h3 id="db-label">vector_db.json を選択</h3>
+          <p id="db-sublabel">converter.html で作成したファイルを選択します</p>
+        </div>
+      </div>
+      <input type="file" id="db-file-input" accept=".json">
+    </div>
+
+    <!-- エラー表示 -->
+    <div id="init-error"></div>
+
+    <!-- 準備完了 -->
+    <div id="ready-msg">✅ 準備完了！チャットを開始します…</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     チャット画面
+════════════════════════════════════════ -->
+<div id="chat-screen">
+
+  <div id="chat-header">
+    <div class="header-left">
+      <div class="header-mark">🏫</div>
+      <div>
+        <div class="header-title">生徒会AIポータル</div>
+        <div class="header-sub">Scrapbox 8年分の記録を参照中</div>
+      </div>
+    </div>
+    <div class="online-badge">
+      <div class="online-dot"></div>
+      稼働中
+    </div>
+  </div>
+
+  <div id="chat-messages">
+    <div class="welcome">
+      <div class="welcome-icon">💬</div>
+      <h2>こんにちは！</h2>
+      <p>
+        生徒会のScrapboxに記録された<br>
+        8年分の情報をAIが検索してお答えします。
+      </p>
+      <div class="welcome-chips">
+        <div class="chip" onclick="fillInput(this)">文化祭の開催時期は？</div>
+        <div class="chip" onclick="fillInput(this)">予算の承認手順を教えて</div>
+        <div class="chip" onclick="fillInput(this)">生徒総会の準備内容は？</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-input-area">
+    <textarea
+      id="question-input"
+      placeholder="質問を入力してください…（Shift+Enterで改行）"
+      rows="1"
+    ></textarea>
+    <button id="send-btn" disabled>送信</button>
+  </div>
+
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────
+   設定
+───────────────────────────────────────────────── */
+const TOP_K       = 5;   // 検索で取得するチャンク数
+const MAX_HISTORY = 6;   // LLMに渡す会話履歴ターン数
+
+/* ─────────────────────────────────────────────────
+   状態
+───────────────────────────────────────────────── */
+const state = { embedReady: false, llmReady: false, dbReady: false };
+
+let vectorDb     = null;
+let embedWorker  = null;
+let llmWorker    = null;
+const chatHistory = [];
+
+// Worker応答を Promise にラップするためのコールバックキュー
+let pendingQueryResolve = null;
+
+/* ─────────────────────────────────────────────────
+   ユーティリティ
+───────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+function setBar(barId, pct) {
+  const bar = $(barId);
+  bar.style.width = Math.min(pct, 100) + '%';
+  if (pct >= 100) bar.classList.add('done');
+}
+function setStepNum(numId, status) {
+  const el = $(numId);
+  el.classList.remove('active', 'done');
+  if (status) el.classList.add(status);
+}
+
+function showError(msg) {
+  const el = $('init-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function updateStatus(message) {
+  const status = $('embed-status');
+  status.textContent = message;
+}
+
+/* ─────────────────────────────────────────────────
+   embed.worker.js の起動
+───────────────────────────────────────────────── */
+function startEmbedWorker() {
+  embedWorker = new Worker('embed.worker.js', { type: 'module' });
+
+  embedWorker.onmessage = (e) => {
+    const { type, pct, text, done, total } = e.data;
+
+    if (type === 'MODEL_PROGRESS') {
+      updateStatus(`モデルをダウンロード中: ${Math.round(pct)}%`);
+      setBar('embed-bar', pct);
+      setStepNum('step1-num', 'active');
+      if (pct >= 100) {
+        $('embed-status').textContent = '✅ 完了';
+        $('embed-status').className   = 'step-status ok';
+        setStepNum('step1-num', 'done');
+        state.embedReady = true;
+        checkAllReady();
+      }
+
+    } else if (type === 'QUERY_RESULT') {
+      // クエリ埋め込みの応答をPromiseに返す
+      if (pendingQueryResolve) {
+        pendingQueryResolve(e.data.embedding);
+        pendingQueryResolve = null;
+      }
+
+    } else if (type === 'ERROR') {
+      $('embed-status').textContent = '❌ エラー';
+      $('embed-status').className   = 'step-status err';
+      showError('検索モデルの読み込みに失敗しました。\n' + e.data.message);
+    }
+  };
+
+  // モデル読み込みをトリガー（EMBED_QUERYで自動初期化されるが、先に起動しておく）
+  embedWorker.postMessage({ type: 'EMBED_QUERY', text: '生徒会' });
+}
+
+/* ─────────────────────────────────────────────────
+   llm.worker.js の起動
+───────────────────────────────────────────────── */
+let llmStreamCallback = null;
+let llmDoneCallback   = null;
+
+function startLlmWorker() {
+  llmWorker = new Worker('llm.worker.js', { type: 'module' });
+
+  llmWorker.onmessage = (e) => {
+    const { type } = e.data;
+
+    if (type === 'LLM_PROGRESS') {
+      setBar('llm-bar', e.data.pct);
+      setStepNum('step2-num', 'active');
+      $('llm-status').textContent = e.data.pct < 100 ? e.data.pct + '%' : '✅ 完了';
+      if (e.data.text) $('llm-hint').textContent = e.data.text.substring(0, 90);
+
+    } else if (type === 'LLM_READY') {
+      setBar('llm-bar', 100);
+      $('llm-status').textContent = '✅ 完了';
+      $('llm-status').className   = 'step-status ok';
+      $('llm-hint').textContent   = e.data.modelLabel ?? '';
+      setStepNum('step2-num', 'done');
+      state.llmReady = true;
+      checkAllReady();
+
+    } else if (type === 'LLM_CHUNK') {
+      if (llmStreamCallback) llmStreamCallback(e.data.delta);
+
+    } else if (type === 'LLM_DONE') {
+      if (llmDoneCallback) llmDoneCallback();
+      llmStreamCallback = null;
+      llmDoneCallback   = null;
+
+    } else if (type === 'ERROR') {
+      if (e.data.fatal) {
+        $('llm-status').textContent = '❌ エラー';
+        $('llm-status').className   = 'step-status err';
+        showError(e.data.message);
+      }
+      // 非fatalは推論エラーとして処理（sendMessage側でハンドリング）
+      if (llmDoneCallback) { llmDoneCallback(e.data.message); }
+      llmStreamCallback = null;
+      llmDoneCallback   = null;
+    }
+  };
+
+  llmWorker.postMessage({ type: 'INIT' });
+}
+
+/* ─────────────────────────────────────────────────
+   DBファイル読み込み
+───────────────────────────────────────────────── */
+const dbPicker = $('db-picker');
+const dbInput  = $('db-file-input');
+
+dbPicker.addEventListener('click', () => { if (!state.dbReady) dbInput.click(); });
+dbPicker.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') dbInput.click(); });
+
+dbInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    $('db-status').textContent = '読み込み中…';
+    const text   = await file.text();
+    const parsed = JSON.parse(text);
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error('正しい vector_db.json 形式ではありません。');
+    }
+    if (!parsed[0].embedding || !Array.isArray(parsed[0].embedding)) {
+      throw new Error('"embedding" フィールドが見つかりません。');
+    }
+
+    vectorDb = parsed;
+
+    $('db-status').textContent = `✅ ${vectorDb.length.toLocaleString()} チャンク`;
+    $('db-status').className   = 'step-status ok';
+    $('db-icon').textContent   = '✅';
+    $('db-label').textContent  = `${file.name}（${vectorDb.length.toLocaleString()} チャンク）`;
+    $('db-sublabel').textContent = '読み込み完了';
+    dbPicker.classList.add('loaded');
+    setStepNum('step3-num', 'done');
+
+    state.dbReady = true;
+    checkAllReady();
+
+  } catch (err) {
+    $('db-status').textContent = '❌ エラー';
+    $('db-status').className   = 'step-status err';
+    alert(`ファイルの読み込みに失敗しました:\n${err.message}`);
+    e.target.value = '';
+  }
+});
+
+/* ─────────────────────────────────────────────────
+   全ステップ完了チェック → 画面遷移
+───────────────────────────────────────────────── */
+function checkAllReady() {
+  if (!state.embedReady || !state.llmReady || !state.dbReady) return;
+
+  $('ready-msg').style.display = 'block';
+  setTimeout(() => {
+    $('init-screen').style.display = 'none';
+    $('chat-screen').style.display = 'flex';
+    $('send-btn').disabled = false;
+    $('question-input').focus();
+  }, 1000);
+}
+
+/* ─────────────────────────────────────────────────
+   コサイン類似度 + ベクトル検索
+───────────────────────────────────────────────── */
+function cosineSim(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na  += a[i] * a[i];
+    nb  += b[i] * b[i];
+  }
+  const denom = Math.sqrt(na) * Math.sqrt(nb);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+function searchTopK(queryEmb, k) {
+  return vectorDb
+    .map(item => ({ ...item, score: cosineSim(queryEmb, item.embedding) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, k);
+}
+
+/* ─────────────────────────────────────────────────
+   Workerでクエリを埋め込む（Promise ラップ）
+───────────────────────────────────────────────── */
+function embedQuery(text) {
+  return new Promise((resolve, reject) => {
+    pendingQueryResolve = resolve;
+    embedWorker.postMessage({ type: 'EMBED_QUERY', text });
+    // タイムアウト30秒
+    setTimeout(() => {
+      if (pendingQueryResolve) {
+        pendingQueryResolve = null;
+        reject(new Error('埋め込みのタイムアウト'));
+      }
+    }, 30000);
+  });
+}
+
+/* ─────────────────────────────────────────────────
+   システムプロンプト生成
+   メタデータ（year/tag）があれば検索フィルタとして活用
+───────────────────────────────────────────────── */
+function buildSystemPrompt(chunks) {
+  const ctx = chunks.map((c, i) => {
+    const meta = [
+      c.year ? `年度:${c.year}` : null,
+      c.tag  ? `分類:${c.tag}`  : null,
+    ].filter(Boolean).join(' ');
+
+    const header = meta
+      ? `[資料${i+1}] ${c.pageTitle}（${meta}）`
+      : `[資料${i+1}] ${c.pageTitle}`;
+
+    return `${header}\n${c.text}`;
+  }).join('\n\n---\n\n');
+
+  return `あなたは高校の生徒会専用AIアシスタントです。
+以下の【参考資料】は生徒会Scrapboxから検索された関連情報です。
+この参考資料の内容のみを根拠として、質問に日本語で丁寧・簡潔に回答してください。
+
+【重要ルール】
+- 参考資料に記載がない情報は「記録が見当たりません」と答えてください。
+- 推測や創作で回答しないでください。
+- 回答は日本語でお願いします。
+
+【参考資料】
+${ctx}`;
+}
+
+/* ─────────────────────────────────────────────────
+   チャットUI
+───────────────────────────────────────────────── */
+const messagesEl = $('chat-messages');
+
+function addUserMsg(text) {
+  const row    = document.createElement('div');
+  row.className = 'msg-row user';
+  const bubble  = document.createElement('div');
+  bubble.className  = 'bubble';
+  bubble.textContent = text;
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollBottom();
+}
+
+function addAiMsg() {
+  const row    = document.createElement('div');
+  row.className = 'msg-row ai';
+
+  const bubble  = document.createElement('div');
+  bubble.className = 'bubble thinking';
+
+  // ドットアニメーション
+  const dots = document.createElement('div');
+  dots.className = 'dots';
+  dots.innerHTML = '<span></span><span></span><span></span>';
+  bubble.appendChild(dots);
+
+  row.appendChild(bubble);
+  messagesEl.appendChild(row);
+  scrollBottom();
+
+  return {
+    row,
+    bubble,
+    // ストリーミング開始時にドットをクリアしてカーソルを置く
+    startStream() {
+      bubble.className = 'bubble';
+      bubble.textContent = '';
+      this._cursor = document.createElement('span');
+      this._cursor.className = 'cursor';
+      bubble.appendChild(this._cursor);
+    },
+    append(text) {
+      // カーソルの前にテキストノードを挿入
+      const node = document.createTextNode(text);
+      bubble.insertBefore(node, this._cursor);
+      scrollBottom();
+    },
+    finalize(sourcesData) {
+      // カーソル削除
+      if (this._cursor && this._cursor.parentNode) {
+        this._cursor.parentNode.removeChild(this._cursor);
+      }
+      // ソースタグ追加
+      if (sourcesData && sourcesData.length > 0) {
+        const srcWrap = document.createElement('div');
+        srcWrap.className = 'sources';
+
+        // 年度をユニーク収集
+        const years = [...new Set(sourcesData.map(s => s.year).filter(Boolean))];
+        years.forEach(y => {
+          const t = document.createElement('span');
+          t.className = 'source-tag year-tag';
+          t.textContent = y + '年度';
+          srcWrap.appendChild(t);
+        });
+
+        // タイトルをユニーク収集
+        const titles = [...new Set(sourcesData.map(s => s.pageTitle))];
+        titles.forEach(title => {
+          const t = document.createElement('span');
+          t.className = 'source-tag';
+          t.textContent = title;
+          srcWrap.appendChild(t);
+        });
+
+        row.appendChild(srcWrap);
+      }
+      scrollBottom();
+    },
+    error(msg) {
+      bubble.className = 'bubble';
+      bubble.textContent = '⚠️ ' + msg;
+      if (this._cursor && this._cursor.parentNode) {
+        this._cursor.parentNode.removeChild(this._cursor);
+      }
+    }
+  };
+}
+
+function scrollBottom() {
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+/* ─────────────────────────────────────────────────
+   チップから入力
+───────────────────────────────────────────────── */
+function fillInput(el) {
+  $('question-input').value = el.textContent;
+  $('question-input').focus();
+}
+window.fillInput = fillInput;
+
+/* ─────────────────────────────────────────────────
+   メッセージ送信
+───────────────────────────────────────────────── */
+async function sendMessage() {
+  const input    = $('question-input');
+  const question = input.value.trim();
+  if (!question) return;
+  if (!state.embedReady || !state.llmReady || !state.dbReady) return;
+
+  input.value         = '';
+  input.style.height  = 'auto';
+  input.disabled      = true;
+  $('send-btn').disabled = true;
+
+  addUserMsg(question);
+  const aiMsg = addAiMsg();
+
+  try {
+    // 1. クエリをWorkerで埋め込む
+    const queryEmb = await embedQuery(question);
+
+    // 2. ベクトル検索（メインスレッドで計算 ─ DBが大きい場合はWorkerへ移行可）
+    const relevant = searchTopK(queryEmb, TOP_K);
+
+    // 3. プロンプト構築
+    const systemPrompt = buildSystemPrompt(relevant);
+
+    // 4. 会話履歴に追加
+    chatHistory.push({ role: 'user', content: question });
+    const msgs = [
+      { role: 'system', content: systemPrompt },
+      ...chatHistory.slice(-MAX_HISTORY),
+    ];
+
+    // 5. LLM Workerにストリーミング推論依頼
+    aiMsg.startStream();
+
+    await new Promise((resolve, reject) => {
+      llmStreamCallback = (delta) => aiMsg.append(delta);
+      llmDoneCallback   = (errMsg) => {
+        if (errMsg) reject(new Error(errMsg));
+        else resolve();
+      };
+      llmWorker.postMessage({ type: 'CHAT', messages: msgs });
+    });
+
+    // 6. 参照元を表示
+    aiMsg.finalize(relevant);
+
+    // 7. 履歴に応答を記録（テキストコンテンツを取得）
+    const fullText = aiMsg.bubble.textContent;
+    chatHistory.push({ role: 'assistant', content: fullText });
+
+  } catch (err) {
+    aiMsg.error(`エラーが発生しました: ${err.message}`);
+    console.error('[chat]', err);
+
+  } finally {
+    input.disabled         = false;
+    $('send-btn').disabled  = false;
+    input.focus();
+    scrollBottom();
+  }
+}
+
+/* ─────────────────────────────────────────────────
+   イベントリスナー
+───────────────────────────────────────────────── */
+$('send-btn').addEventListener('click', sendMessage);
+
+$('question-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+$('question-input').addEventListener('input', function () {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 130) + 'px';
+});
+
+/* ─────────────────────────────────────────────────
+   起動（両Workerを並列起動）
+───────────────────────────────────────────────── */
+
+async function checkGPU() {
+  if (!navigator.gpu) return "❌ WebGPU非対応のブラウザです";
+  try {
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) return "❌ GPUアダプターが見つかりません（グラボが無効化されている可能性）";
+    
+    // requestAdapterInfo が使えない場合のフォールバック
+    const info = adapter.info || (await adapter.requestAdapterInfo?.()) || { vendor: "不明", architecture: "不明" };
+    console.log("GPU詳細:", info);
+    return `✅ GPU認識: ${info.vendor} / ${info.architecture}`;
+  } catch (e) {
+    return `❌ GPUチェックエラー: ${e.message}`;
+  }
+}
+
+// 実行してコンソールに表示
+checkGPU().then(msg => console.log("%c" + msg, "color: yellow; font-weight: bold;"));
+
+// この後に既存の Worker 作成コードが続くはずです
+window.onload = () => {
+  startEmbedWorker();
+  startLlmWorker();
+};
+</script>
+</body>
+</html>
