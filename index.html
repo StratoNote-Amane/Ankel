@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ankel — 生徒会総務AIシステム</title>
+
+  <!-- COI ServiceWorker: SharedArrayBuffer を GitHub Pages で有効化 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./coi-serviceworker.js').then(reg => {
+        // 初回登録時はリロードが必要
+        if (!crossOriginIsolated) {
+          reg.addEventListener('updatefound', () => {
+            reg.installing?.addEventListener('statechange', e => {
+              if (e.target.state === 'activated') location.reload();
+            });
+          });
+        }
+      });
+    }
+  </script>
+
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     インポート画面
+════════════════════════════════════════════ -->
+<div id="import-screen">
+  <div class="import-card">
+
+    <div class="import-logo">
+      <!-- Ankel アイコン: 76c0ea 塗り・四芒星×2・内側くりぬき -->
+      <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <defs>
+          <mask id="star-mask-import">
+            <rect width="64" height="64" fill="white"/>
+            <!-- 内側をくりぬく小さい四芒星（黒） -->
+            <polygon fill="black" points="
+              32,20 34.5,29.5 44,32 34.5,34.5 32,44 29.5,34.5 20,32 29.5,29.5
+            "/>
+          </mask>
+        </defs>
+        <!-- 大きい四芒星 -->
+        <polygon fill="#76c0ea" mask="url(#star-mask-import)" points="
+          32,4  37,27 60,32 37,37 32,60 27,37 4,32 27,27
+        "/>
+        <!-- 小さい四芒星（重ね） -->
+        <polygon fill="#76c0ea" opacity="0.6" points="
+          32,18 34,30 46,32 34,34 32,46 30,34 18,32 30,30
+        "/>
+      </svg>
+
+      <h1>ANKEL</h1>
+      <p>生徒会総務AIアシスタント · LOCAL INFERENCE</p>
+    </div>
+
+    <!-- ドロップゾーン -->
+    <div class="import-drop-zone" id="drop-zone">
+      <span class="drop-icon">⬡</span>
+      <p><strong>Scrapbox JSONをドロップ</strong>または<strong>クリック</strong>して選択</p>
+      <p style="margin-top:0.4rem;font-size:0.75rem;">エクスポート: Scrapbox → 設定 → Export</p>
+      <input type="file" id="json-file-input" accept=".json" />
+    </div>
+
+    <!-- プログレスバー（ファイル読み込み中に表示） -->
+    <div class="import-progress-wrap" id="import-progress-wrap">
+      <div class="import-progress-bar-outer">
+        <div class="import-progress-bar-inner" id="import-progress-bar"></div>
+      </div>
+      <div class="import-progress-pct" id="import-progress-pct">0%</div>
+    </div>
+
+    <div class="import-status" id="import-status"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     メインアプリ
+════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ヘッダー -->
+  <header id="header">
+    <div class="header-icon">
+      <svg width="30" height="30" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <defs>
+          <mask id="star-mask-header">
+            <rect width="64" height="64" fill="white"/>
+            <polygon fill="black" points="32,20 34.5,29.5 44,32 34.5,34.5 32,44 29.5,34.5 20,32 29.5,29.5"/>
+          </mask>
+        </defs>
+        <polygon fill="#76c0ea" mask="url(#star-mask-header)" points="32,4 37,27 60,32 37,37 32,60 27,37 4,32 27,27"/>
+        <polygon fill="#76c0ea" opacity="0.6" points="32,18 34,30 46,32 34,34 32,46 30,34 18,32 30,30"/>
+      </svg>
+    </div>
+
+    <div>
+      <div class="header-title">ANKEL</div>
+      <div class="header-sub">生徒会総務AIアシスタント</div>
+    </div>
+
+    <div class="header-spacer"></div>
+
+    <!-- モデル選択 -->
+    <div class="model-selector">
+      <label for="model-select">MODEL:</label>
+      <select id="model-select">
+        <option value="standard">標準モード（校閲・高速）— Llama-3.2-1B</option>
+        <option value="writing">文章作成特化 — Qwen2.5-1.5B</option>
+        <option value="reasoning">論理・解決特化 — Gemma-2-2B</option>
+      </select>
+    </div>
+
+    <!-- ステータス -->
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">初期化中...</span>
+  </header>
+
+  <!-- ボディ -->
+  <div id="body">
+
+    <!-- サイドバー -->
+    <aside id="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">ナレッジベース</div>
+        <div id="kb-stats">読み込み中...</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">フィルタ</div>
+        <div class="sidebar-filter">
+          <select id="tag-filter">
+            <option value="all">すべてのタグ</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sidebar-label" style="padding:0.5rem 1rem 0.25rem;">最近のページ</div>
+      <div id="recent-pages"></div>
+    </aside>
+
+    <!-- チャット -->
+    <div id="chat-area">
+      <div id="messages">
+        <!-- 初期ウェルカムメッセージ -->
+        <div class="message assistant">
+          <div class="msg-avatar">ANK</div>
+          <div class="msg-bubble">
+            <span class="msg-text">こんにちは。私は生徒会総務AIアシスタント「Ankel」です。
+Scrapboxの過去資料を参照しながら、校閲・資料作成・問題解決をサポートします。
+何でも質問してください。</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 入力エリア -->
+      <div id="input-area">
+        <textarea
+          id="user-input"
+          placeholder="質問・依頼を入力してください…（Shift+Enterで改行）"
+          rows="1"
+        ></textarea>
+        <button id="send-btn">送信 ↵</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- モデル読み込みオーバーレイ -->
+<div id="model-overlay">
+  <div class="overlay-spinner"></div>
+  <div class="overlay-text" id="overlay-text">モデルを準備しています...</div>
+  <div class="overlay-progress">
+    <div class="overlay-progress-bar" id="overlay-bar"></div>
+  </div>
+</div>
+
+<!-- トースト通知 -->
+<div id="toast"></div>
+
+<script src="./main.js"></script>
+</body>
+</html>
